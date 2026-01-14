@@ -2,21 +2,23 @@ package smartlog
 
 import (
 	"os"
+	"time"
 
+	"github.com/DeRuina/timberjack"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-// NewLogger creates a new Zap logger with Lumberjack for log rotation.
+// NewLogger creates a new Zap logger with Timberjack for log rotation.
 func NewLogger(cfg *Config) *zap.Logger {
-	// Lumberjack hook for rotating log files
-	lumberjackHook := &lumberjack.Logger{
+	// Timberjack hook for rotating log files
+	timberjackHook := &timberjack.Logger{
 		Filename:   cfg.LogPath,
 		MaxSize:    10, // megabytes
 		MaxBackups: 3,
-		MaxAge:     7, //days
-		Compress:   true,
+		MaxAge:     1, //days
+		Compression: "gzip",
+		RotationInterval: 24 * time.Hour,
 	}
 
 	// Zap core configuration
@@ -26,8 +28,8 @@ func NewLogger(cfg *Config) *zap.Logger {
 	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 	encoderConfig.MessageKey = "message"
 
-	// Create a core that writes to the lumberjack hook
-	fileWriter := zapcore.AddSync(lumberjackHook)
+	// Create a core that writes to the timberjack hook
+	fileWriter := zapcore.AddSync(timberjackHook)
 	// Also create a core that writes to the console
 	consoleWriter := zapcore.AddSync(os.Stdout)
 

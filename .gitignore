@@ -1,0 +1,7 @@
+# Log files
+*.log
+
+# Compiled binaries
+examples/resty/resty-example
+examples/gin/gin-example
+examples/echo/echo-example
