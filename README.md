@@ -114,3 +114,31 @@ curl -X POST -H "Authorization: Bearer secret-token" -d '{"username":"jules", "p
 ```
 
 Check the console output and the generated `app.log` file to see the structured logs for the server request, the client request to the mock service, and the final server response. You will see that the `log_id` is consistent across all related log entries.
+
+## Integration Examples
+
+The `examples/` directory also contains examples for integrating `smartlog` with popular libraries.
+
+### Resty Client
+
+To run the Resty example:
+```bash
+cd examples/resty
+go run main.go
+```
+
+### Gin Server
+
+To run the Gin server example:
+```bash
+cd examples/gin
+go run main.go
+```
+
+### Echo Server
+
+To run the Echo server example:
+```bash
+cd examples/echo
+go run main.go
+```
