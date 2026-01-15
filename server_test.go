@@ -116,8 +116,10 @@ func TestServerLogging_FileCreationAndContent(t *testing.T) {
 	cfg := &Config{
 		ServiceName: "test-service",
 		Env:         "test",
-		LogPath:     logPath,
-		RedactKeys:  []string{"password"},
+		Log: TimberjackConfig{
+			Filename: logPath,
+		},
+		RedactKeys: []string{"password"},
 	}
 	logger := NewLogger(cfg)
 	defer logger.Sync()

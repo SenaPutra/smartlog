@@ -2,6 +2,8 @@
 *.log
 
 # Compiled binaries
-examples/resty/resty-example
-examples/gin/gin-example
-examples/echo/echo-example
+/examples/echo/echo-example
+/examples/gin/gin-example
+/examples/resty/resty-example
+/examples/example
+/examples/examples

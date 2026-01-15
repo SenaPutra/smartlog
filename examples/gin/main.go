@@ -2,24 +2,32 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 	"smartlog"
 )
 
 func main() {
-	// --- 1. Configuration ---
-	cfg := &smartlog.Config{
-		ServiceName: "gin-server-example",
-		Env:         "development",
-		LogPath:     "gin_app.log",
-		RedactKeys:  []string{"password", "Authorization"},
+	// --- 1. Load Configuration ---
+	viper.SetConfigName("config")
+	viper.SetConfigType("yml")
+	viper.AddConfigPath(".")
+
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatalf("Error reading config file: %s", err)
+	}
+
+	var cfg smartlog.Config
+	if err := viper.Unmarshal(&cfg); err != nil {
+		log.Fatalf("Unable to decode into struct: %v", err)
 	}
 
 	// --- 2. Logger Initialization ---
-	logger := smartlog.NewLogger(cfg)
+	logger := smartlog.NewLogger(&cfg)
 	defer logger.Sync()
 
 	// --- 3. Gin Router ---

@@ -13,12 +13,12 @@ import (
 func NewLogger(cfg *Config) *zap.Logger {
 	// Timberjack hook for rotating log files
 	timberjackHook := &timberjack.Logger{
-		Filename:   cfg.LogPath,
-		MaxSize:    10, // megabytes
-		MaxBackups: 3,
-		MaxAge:     1, //days
-		Compression: "gzip",
-		RotationInterval: 24 * time.Hour,
+		Filename:         cfg.Log.Filename,
+		MaxSize:          cfg.Log.MaxSize,
+		MaxBackups:       cfg.Log.MaxBackups,
+		MaxAge:           cfg.Log.MaxAge,
+		Compression:      cfg.Log.Compression,
+		RotationInterval: time.Duration(cfg.Log.RotationInterval) * time.Hour,
 	}
 
 	// Zap core configuration

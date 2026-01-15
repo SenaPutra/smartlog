@@ -1,0 +1,11 @@
+service_name: "example-service"
+env: "development"
+redact_keys: ["password", "Authorization", "token"]
+
+log:
+  filename: "app.log"
+  max_size: 10
+  max_backups: 3
+  max_age: 1
+  compression: "gzip"
+  rotation_interval: 24 # in hours

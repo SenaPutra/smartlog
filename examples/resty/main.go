@@ -8,20 +8,27 @@ import (
 	"time"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/spf13/viper"
 	"smartlog"
 )
 
 func main() {
-	// --- 1. Configuration ---
-	cfg := &smartlog.Config{
-		ServiceName: "resty-client-example",
-		Env:         "development",
-		LogPath:     "resty_app.log",
-		RedactKeys:  []string{"Authorization", "token"},
+	// --- 1. Load Configuration ---
+	viper.SetConfigName("config")
+	viper.SetConfigType("yml")
+	viper.AddConfigPath(".")
+
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatalf("Error reading config file: %s", err)
+	}
+
+	var cfg smartlog.Config
+	if err := viper.Unmarshal(&cfg); err != nil {
+		log.Fatalf("Unable to decode into struct: %v", err)
 	}
 
 	// --- 2. Logger Initialization ---
-	logger := smartlog.NewLogger(cfg)
+	logger := smartlog.NewLogger(&cfg)
 	defer logger.Sync()
 
 	// --- 3. Mock Server ---
@@ -42,11 +49,12 @@ func main() {
 	// --- 4. Create an HTTP Client with smartlog Transport ---
 	httpClient := &http.Client{
 		Transport: smartlog.NewClientLogger(http.DefaultTransport, logger, cfg.RedactKeys),
-		Timeout:   10 * time.Second,
 	}
 
 	// --- 5. Create a Resty Client with the smartlog-enabled HTTP Client ---
-	client := resty.New().SetTransport(httpClient.Transport)
+	client := resty.New().
+		SetTransport(httpClient.Transport).
+		SetTimeout(10 * time.Second)
 
 	fmt.Println("Sending request with Resty client...")
 	fmt.Println("Check the console output and 'resty_app.log' for logs.")

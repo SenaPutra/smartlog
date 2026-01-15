@@ -23,21 +23,36 @@ go get github.com/your-username/smartlog
 
 ## Configuration
 
-The logger is configured via a `smartlog.Config` struct. This can be populated from a config file (e.g., YAML, JSON) using a library like [Viper](https://github.com/spf13/viper).
+The logger is configured via a `smartlog.Config` struct, which can be easily populated from a YAML, JSON, or TOML file using a library like [Viper](https://github.com/spf13/viper).
 
-```go
-cfg := &smartlog.Config{
-    ServiceName: "user-service",
-    Env:         "production",
-    LogPath:     "/var/log/user-service.log",
-    RedactKeys:  []string{"password", "Authorization", "token", "api_key"},
-}
+An example `config.yml` is provided in the `examples/` directory:
+
+```yaml
+service_name: "example-service"
+env: "development"
+redact_keys: ["password", "Authorization", "token"]
+
+log:
+  filename: "app.log"
+  max_size: 10
+  max_backups: 3
+  max_age: 1
+  compression: "gzip"
+  rotation_interval: 24 # in hours
 ```
 
-- `ServiceName`: The name of your service (e.g., "user-service").
-- `Env`: The environment (e.g., "production", "development").
-- `LogPath`: The file path where logs will be written.
-- `RedactKeys`: A slice of strings containing keys that should be censored in the logs. The redaction is case-insensitive.
+### Configuration Details
+
+- `service_name`: The name of your service (e.g., "user-service").
+- `env`: The environment (e.g., "production", "development").
+- `redact_keys`: A list of keys that should be censored in the logs.
+- `log`:
+  - `filename`: The path to the log file.
+  - `max_size`: The maximum size in megabytes of the log file before it gets rotated.
+  - `max_backups`: The maximum number of old log files to retain.
+  - `max_age`: The maximum number of days to retain old log files.
+  - `compression`: The compression type for rotated logs ("gzip" or "none").
+  - `rotation_interval`: The rotation interval in hours (e.g., 24 for daily rotation).
 
 ## Usage
 
