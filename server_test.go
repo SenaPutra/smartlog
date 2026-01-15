@@ -4,9 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -101,4 +105,48 @@ func TestServerLoggingMiddleware(t *testing.T) {
 	if dataField["secret"] != redactionPlaceholder {
 		t.Errorf("response body was not redacted correctly, got: %s", dataField["secret"])
 	}
+}
+
+func TestServerLogging_FileCreationAndContent(t *testing.T) {
+	// 1. Setup a temporary directory for the log file
+	tempDir := t.TempDir()
+	logPath := filepath.Join(tempDir, "test.log")
+
+	// 2. Configure and create a logger that writes to the temp file
+	cfg := &Config{
+		ServiceName: "test-service",
+		Env:         "test",
+		LogPath:     logPath,
+		RedactKeys:  []string{"password"},
+	}
+	logger := NewLogger(cfg)
+	defer logger.Sync()
+
+	// 3. Setup the test handler and middleware
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+	middleware := ServerLogging(logger, cfg.RedactKeys)
+	wrappedHandler := middleware(testHandler)
+
+	// 4. Send a request to trigger the logger
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	rr := httptest.NewRecorder()
+	wrappedHandler.ServeHTTP(rr, req)
+
+	// 5. Verify the log file was created
+	_, err := os.Stat(logPath)
+	require.NoError(t, err, "Log file should be created")
+
+	// 6. Read the content of the log file
+	logContent, err := os.ReadFile(logPath)
+	require.NoError(t, err, "Should be able to read the log file")
+
+	// 7. Verify the log content
+	logString := string(logContent)
+	assert.Contains(t, logString, `"message":"Request received"`, "Log should contain the request received message")
+	assert.Contains(t, logString, `"message":"Response sent"`, "Log should contain the response sent message")
+	assert.Contains(t, logString, `"service":"test-service"`, "Log should contain the service name")
+	assert.Contains(t, logString, `"path":"/health"`, "Log should contain the request path")
 }
