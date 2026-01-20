@@ -52,9 +52,21 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 }
 
 // ServerLogging is a middleware that logs incoming HTTP requests and their responses.
-func ServerLogging(logger *zap.Logger, redactKeys []string) func(http.Handler) http.Handler {
+func ServerLogging(logger *zap.Logger, cfg *Config) func(http.Handler) http.Handler {
+	// Create a map for quick lookup of skip paths
+	skipPaths := make(map[string]bool)
+	for _, path := range cfg.SkipPaths {
+		skipPaths[path] = true
+	}
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// If the path is in our skip list, just call the next handler
+			if skipPaths[r.URL.Path] {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			startTime := time.Now()
 
 			// Get or create Log ID
@@ -80,13 +92,13 @@ func ServerLogging(logger *zap.Logger, redactKeys []string) func(http.Handler) h
 			}
 
 			// Redact and prepare request body for logging
-			redactedReqBody := redactJSONBody(reqBodyBytes, redactKeys)
+			redactedReqBody := redactJSONBody(reqBodyBytes, cfg.RedactKeys)
 			var reqBodyForLog json.RawMessage
 			if len(redactedReqBody) > 0 {
 				reqBodyForLog = json.RawMessage(redactedReqBody)
 			}
 
-			redactedHeaders := redactHeaders(r.Header, redactKeys)
+			redactedHeaders := redactHeaders(r.Header, cfg.RedactKeys)
 
 			ctxLogger.Info("Request received",
 				zap.String("method", r.Method),
@@ -107,7 +119,7 @@ func ServerLogging(logger *zap.Logger, redactKeys []string) func(http.Handler) h
 			latency := time.Since(startTime)
 
 			// Redact and prepare response body for logging
-			redactedRespBody := redactJSONBody(rw.body.Bytes(), redactKeys)
+			redactedRespBody := redactJSONBody(rw.body.Bytes(), cfg.RedactKeys)
 			var respBodyForLog json.RawMessage
 			if len(redactedRespBody) > 0 {
 				respBodyForLog = json.RawMessage(redactedRespBody)

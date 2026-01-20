@@ -29,10 +29,12 @@ func TestServerLoggingMiddleware(t *testing.T) {
 	})
 
 	// Keys to be redacted in this test
-	redactKeys := []string{"secret", "Authorization"}
+	cfg := &Config{
+		RedactKeys: []string{"secret", "Authorization"},
+	}
 
 	// Create the middleware
-	middleware := ServerLogging(logger, redactKeys)
+	middleware := ServerLogging(logger, cfg)
 	wrappedHandler := middleware(testHandler)
 
 	// Create a test request
@@ -129,7 +131,7 @@ func TestServerLogging_FileCreationAndContent(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok"}`))
 	})
-	middleware := ServerLogging(logger, cfg.RedactKeys)
+	middleware := ServerLogging(logger, cfg)
 	wrappedHandler := middleware(testHandler)
 
 	// 4. Send a request to trigger the logger
@@ -151,4 +153,43 @@ func TestServerLogging_FileCreationAndContent(t *testing.T) {
 	assert.Contains(t, logString, `"message":"Response sent"`, "Log should contain the response sent message")
 	assert.Contains(t, logString, `"service":"test-service"`, "Log should contain the service name")
 	assert.Contains(t, logString, `"path":"/health"`, "Log should contain the request path")
+}
+
+func TestServerLogging_SkipPath(t *testing.T) {
+	// Setup a mock logger to capture logs
+	core, recorded := observer.New(zapcore.InfoLevel)
+	logger := zap.New(core)
+
+	// Configure to skip the /health path
+	cfg := &Config{
+		SkipPaths: []string{"/health"},
+	}
+
+	// A simple handler
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Create the middleware
+	middleware := ServerLogging(logger, cfg)
+	wrappedHandler := middleware(testHandler)
+
+	// Create a test request to the skipped path
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	rr := httptest.NewRecorder()
+	wrappedHandler.ServeHTTP(rr, req)
+
+	// Assertions for the response
+	assert.Equal(t, http.StatusOK, rr.Code, "Handler should be called even if logging is skipped")
+
+	// Assert that no logs were recorded
+	assert.Equal(t, 0, recorded.Len(), "Should not record any logs for a skipped path")
+
+	// Create another request to a non-skipped path
+	req = httptest.NewRequest(http.MethodGet, "/api/data", nil)
+	rr = httptest.NewRecorder()
+	wrappedHandler.ServeHTTP(rr, req)
+
+	// Assert that logs were recorded for the non-skipped path
+	assert.Equal(t, 2, recorded.Len(), "Should record logs for a non-skipped path")
 }

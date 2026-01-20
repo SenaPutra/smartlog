@@ -52,7 +52,7 @@ func main() {
 
 	// --- 4. HTTP Client with Logging Middleware ---
 	client := &http.Client{
-		Transport: smartlog.NewClientLogger(http.DefaultTransport, logger, cfg.RedactKeys),
+		Transport: smartlog.NewClientLogger(http.DefaultTransport, logger, &cfg),
 		Timeout:   5 * time.Second,
 	}
 
@@ -89,7 +89,7 @@ func main() {
 
 	// --- 6. HTTP Server with Logging Middleware ---
 	// Wrap the main handler with the server logging middleware.
-	loggedRouter := smartlog.ServerLogging(logger, cfg.RedactKeys)(mainHandler)
+	loggedRouter := smartlog.ServerLogging(logger, &cfg)(mainHandler)
 
 	fmt.Println("Starting server on :8080")
 	fmt.Println("Try sending a request, e.g.:")

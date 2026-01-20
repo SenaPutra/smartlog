@@ -12,17 +12,17 @@ import (
 
 // loggingRoundTripper is an http.RoundTripper that logs requests and responses.
 type loggingRoundTripper struct {
-	next       http.RoundTripper
-	logger     *zap.Logger
-	redactKeys []string
+	next   http.RoundTripper
+	logger *zap.Logger
+	cfg    *Config
 }
 
 // NewClientLogger creates a new loggingRoundTripper.
-func NewClientLogger(next http.RoundTripper, logger *zap.Logger, redactKeys []string) http.RoundTripper {
+func NewClientLogger(next http.RoundTripper, logger *zap.Logger, cfg *Config) http.RoundTripper {
 	return &loggingRoundTripper{
-		next:       next,
-		logger:     logger,
-		redactKeys: redactKeys,
+		next:   next,
+		logger: logger,
+		cfg:    cfg,
 	}
 }
 
@@ -45,13 +45,13 @@ func (lrt *loggingRoundTripper) RoundTrip(r *http.Request) (*http.Response, erro
 		reqBodyBytes, _ = io.ReadAll(r.Body)
 		r.Body = io.NopCloser(bytes.NewBuffer(reqBodyBytes)) // Restore body
 	}
-	redactedReqBody := redactJSONBody(reqBodyBytes, lrt.redactKeys)
+	redactedReqBody := redactJSONBody(reqBodyBytes, lrt.cfg.RedactKeys)
 	var reqBodyForLog json.RawMessage
 	if len(redactedReqBody) > 0 {
 		reqBodyForLog = json.RawMessage(redactedReqBody)
 	}
 
-	redactedHeaders := redactHeaders(r.Header, lrt.redactKeys)
+	redactedHeaders := redactHeaders(r.Header, lrt.cfg.RedactKeys)
 
 	ctxLogger.Info("Client request sent",
 		zap.String("method", r.Method),
@@ -81,7 +81,7 @@ func (lrt *loggingRoundTripper) RoundTrip(r *http.Request) (*http.Response, erro
 		respBodyBytes, _ = io.ReadAll(resp.Body)
 		resp.Body = io.NopCloser(bytes.NewBuffer(respBodyBytes)) // Restore body
 	}
-	redactedRespBody := redactJSONBody(respBodyBytes, lrt.redactKeys)
+	redactedRespBody := redactJSONBody(respBodyBytes, lrt.cfg.RedactKeys)
 	var respBodyForLog json.RawMessage
 	if len(redactedRespBody) > 0 {
 		respBodyForLog = json.RawMessage(redactedRespBody)

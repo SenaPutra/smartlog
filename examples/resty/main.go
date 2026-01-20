@@ -48,7 +48,7 @@ func main() {
 
 	// --- 4. Create an HTTP Client with smartlog Transport ---
 	httpClient := &http.Client{
-		Transport: smartlog.NewClientLogger(http.DefaultTransport, logger, cfg.RedactKeys),
+		Transport: smartlog.NewClientLogger(http.DefaultTransport, logger, &cfg),
 	}
 
 	// --- 5. Create a Resty Client with the smartlog-enabled HTTP Client ---
