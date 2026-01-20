@@ -109,8 +109,8 @@ func TestServerLoggingMiddleware(t *testing.T) {
 
 func TestServerLogging_FileCreationAndContent(t *testing.T) {
 	// 1. Setup a temporary directory for the log file
-	tempDir := t.TempDir()
-	logPath := filepath.Join(tempDir, "test.log")
+	//tempDir := t.TempDir()
+	logPath := filepath.Join("test.log")
 
 	// 2. Configure and create a logger that writes to the temp file
 	cfg := &Config{
