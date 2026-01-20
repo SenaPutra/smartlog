@@ -46,6 +46,7 @@ log:
 - `service_name`: The name of your service (e.g., "user-service").
 - `env`: The environment (e.g., "production", "development").
 - `redact_keys`: A list of keys that should be censored in the logs.
+- `skip_paths`: A list of URL paths to exclude from logging (e.g., `["/health", "/metrics"]`).
 - `log`:
   - `filename`: The path to the log file.
   - `max_size`: The maximum size in megabytes of the log file before it gets rotated.
@@ -53,6 +54,7 @@ log:
   - `max_age`: The maximum number of days to retain old log files.
   - `compression`: The compression type for rotated logs ("gzip" or "none").
   - `rotation_interval`: The rotation interval in hours (e.g., 24 for daily rotation).
+  - `level`: The log level for the file logger ("debug", "info", "warn", "error"). Defaults to "info".
 
 ## Usage
 
@@ -157,3 +159,12 @@ To run the Echo server example:
 cd examples/echo
 go run main.go
 ```
+
+### GORM Integration
+
+To run the GORM integration example:
+```bash
+cd examples/gorm
+go run main.go
+```
+This example demonstrates how to inject the `smartlog` logger into GORM to automatically log SQL queries in the same structured JSON format, including the `log_id` from the request context.

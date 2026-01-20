@@ -59,7 +59,7 @@ func main() {
 
 	// --- 5. Middleware Integration & Server Start ---
 	// Wrap the Gin router with the smartlog middleware.
-	loggedRouter := smartlog.ServerLogging(logger, cfg.RedactKeys)(router)
+	loggedRouter := smartlog.ServerLogging(logger, &cfg)(router)
 
 	// Start the server using the standard http package.
 	if err := http.ListenAndServe(":8083", loggedRouter); err != nil {

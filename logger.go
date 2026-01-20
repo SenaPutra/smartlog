@@ -33,9 +33,22 @@ func NewLogger(cfg *Config) *zap.Logger {
 	// Also create a core that writes to the console
 	consoleWriter := zapcore.AddSync(os.Stdout)
 
+	// Determine the log level for the file writer
+	fileLogLevel := zap.InfoLevel
+	if cfg.Log.Level != "" {
+		switch cfg.Log.Level {
+		case "debug":
+			fileLogLevel = zap.DebugLevel
+		case "warn":
+			fileLogLevel = zap.WarnLevel
+		case "error":
+			fileLogLevel = zap.ErrorLevel
+		}
+	}
+
 	// Combine writers to log to both file and console
 	core := zapcore.NewTee(
-		zapcore.NewCore(zapcore.NewJSONEncoder(encoderConfig), fileWriter, zap.InfoLevel),
+		zapcore.NewCore(zapcore.NewJSONEncoder(encoderConfig), fileWriter, fileLogLevel),
 		zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), consoleWriter, zap.DebugLevel),
 	)
 

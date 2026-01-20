@@ -35,7 +35,7 @@ func main() {
 
 	// --- 4. Middleware Integration ---
 	// Wrap the smartlog middleware for Echo.
-	e.Use(echo.WrapMiddleware(smartlog.ServerLogging(logger, cfg.RedactKeys)))
+	e.Use(echo.WrapMiddleware(smartlog.ServerLogging(logger, &cfg)))
 
 	// --- 5. Example Route ---
 	e.POST("/users", func(c echo.Context) error {
