@@ -71,7 +71,7 @@ func (l *GormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql 
 	elapsed := time.Since(begin)
 	sql, rows := fc()
 	fields := []zap.Field{
-		zap.Duration("latency", elapsed),
+		zap.Int64("latency_ms", elapsed.Milliseconds()),
 		zap.Int64("rows", rows),
 		zap.String("sql", sql),
 	}
