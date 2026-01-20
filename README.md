@@ -55,6 +55,10 @@ log:
   - `compression`: The compression type for rotated logs ("gzip" or "none").
   - `rotation_interval`: The rotation interval in hours (e.g., 24 for daily rotation).
   - `level`: The log level for the file logger ("debug", "info", "warn", "error"). Defaults to "info".
+- `gorm`:
+  - `level`: The log level for GORM's logger ("silent", "error", "warn", "info"). Defaults to "info".
+  - `log_query_result`: Set to `true` to log the data returned from queries. Defaults to `false`.
+  - `log_result_max_bytes`: The maximum number of bytes to log for a query result. Defaults to `0` (no limit).
 
 ## Usage
 
@@ -168,3 +172,11 @@ cd examples/gorm
 go run main.go
 ```
 This example demonstrates how to inject the `smartlog` logger into GORM to automatically log SQL queries in the same structured JSON format, including the `log_id` from the request context.
+
+To log the results of queries, you must also register the included GORM plugin:
+```go
+resultLoggerPlugin := smartlog.NewGormResultLogPlugin(logger, cfg.Gorm)
+if err := db.Use(resultLoggerPlugin); err != nil {
+    log.Fatalf("Failed to register GORM result logger plugin: %v", err)
+}
+```

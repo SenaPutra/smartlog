@@ -14,3 +14,5 @@ log:
 
 gorm:
   level: "info"
+  log_query_result: true
+  log_result_max_bytes: 50

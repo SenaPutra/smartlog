@@ -44,6 +44,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
+
+	// Register the result logging plugin
+	resultLoggerPlugin := smartlog.NewGormResultLogPlugin(logger, cfg.Gorm)
+	if err := db.Use(resultLoggerPlugin); err != nil {
+		log.Fatalf("Failed to register GORM result logger plugin: %v", err)
+	}
+
 	db.AutoMigrate(&User{})
 
 	// --- 4. HTTP Server ---
