@@ -13,7 +13,9 @@ type TimberjackConfig struct {
 
 // GormConfig holds the configuration for the GORM logger.
 type GormConfig struct {
-	Level string `mapstructure:"level"`
+	Level             string `mapstructure:"level"`
+	LogQueryResult    bool   `mapstructure:"log_query_result"`
+	LogResultMaxBytes int    `mapstructure:"log_result_max_bytes"`
 }
 
 // Config holds the configuration for the logger.
