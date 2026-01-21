@@ -1,6 +1,6 @@
 # smartlog
 
-`smartlog` is a flexible and easy-to-use logging middleware for Go's `net/http` servers and clients. It's built on top of the high-performance [Zap](https://github.com/uber-go/zap) logger and uses [Lumberjack](https://github.com/natefinch/lumberjack) for automatic log rotation.
+`smartlog` is a flexible and easy-to-use logging middleware for Go's `net/http` servers and clients. It's built on top of the high-performance [Zap](https://github.com/uber-go/zap) logger and uses [Timberjack](https://github.com/DeRuina/timberjack) for automatic log rotation.
 
 The main goal is to provide a "plug-and-play" solution for structured JSON logging that can be easily integrated into any Go web application using standard HTTP handlers (like Gin, Echo, Chi, etc.) or standard `http.Client`.
 
@@ -17,7 +17,7 @@ The main goal is to provide a "plug-and-play" solution for structured JSON loggi
 ## Installation
 
 ```bash
-go get github.com/your-username/smartlog
+go get github.com/SenaPutra/smartlog
 ```
 *(Note: Replace `your-username` with the actual path once it's published)*
 
