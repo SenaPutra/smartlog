@@ -4,8 +4,8 @@ redact_keys: ["password", "Authorization"]
 
 log:
   filename: "gin_app.log"
-  max_size: 10000
+  max_size: 10
   max_backups: 3
-  max_age: 30
+  max_age: 1
   compression: "gzip"
   rotation_interval: 24 # in hours
