@@ -1,18 +1,20 @@
 # smartlog
 
-`smartlog` is a flexible and easy-to-use logging middleware for Go's `net/http` servers and clients. It's built on top of the high-performance [Zap](https://github.com/uber-go/zap) logger and uses [Lumberjack](https://github.com/natefinch/lumberjack) for automatic log rotation.
+`smartlog` is a flexible and easy-to-use logging middleware for Go's `net/http` servers and clients. It's built on top of the high-performance [Zap](https://github.com/uber-go/zap) logger and uses [Timberjack](https://github.com/DeRuina/timberjack) for advanced, time-based log rotation.
 
-The main goal is to provide a "plug-and-play" solution for structured JSON logging that can be easily integrated into any Go web application using standard HTTP handlers (like Gin, Echo, Chi, etc.) or standard `http.Client`.
+The main goal is to provide a "plug-and-play" solution for structured JSON logging that can be easily integrated into any Go web application, tracing a single request from server ingress, through database queries, to downstream client requests.
 
 ## Features
 
 - **Structured JSON Logging**: All logs are in JSON format, making them easy to parse, search, and analyze.
+- **End-to-End Traceability**: Traces the entire lifecycle of a request using a consistent `log_id` (`X-Request-ID`), from the moment it hits your server, through GORM database queries, to any downstream API calls it makes.
 - **Request & Response Logging**: Automatically logs details of incoming server requests and outgoing client requests.
-- **Traceability with Log ID**: Traces the entire lifecycle of a request, from the moment it hits your server to any downstream API calls it makes, using a consistent `log_id` (`X-Request-ID`).
-- **Sensitive Data Redaction**: Automatically redacts sensitive data (like passwords, tokens, etc.) from log bodies and headers to prevent secrets from leaking into logs.
-- **Log Rotation**: Uses Lumberjack to handle log rotation, compression, and cleanup automatically.
-- **Generic Middleware**: Designed to work with any `http.Handler` for servers and any `http.RoundTripper` for clients, making it highly compatible.
-- **Asynchronous Logging**: Leverages Zap's performance for asynchronous, low-latency logging.
+- **GORM Integration**: Provides a custom GORM logger to automatically log SQL queries in the same structured JSON format.
+- **Configurable Log Rotation**: Uses Timberjack to handle time-based log rotation, compression, and cleanup automatically.
+- **Dynamic Log Levels**: Configure different log levels for file and console output.
+- **Skippable Routes**: Exclude noisy endpoints (like `/health` or `/metrics`) from logging.
+- **Sensitive Data Redaction**: Automatically redacts sensitive data from log bodies and headers.
+- **Generic Middleware**: Designed to work with any `http.Handler` and `http.RoundTripper`, making it highly compatible with frameworks like Gin, Echo, Chi, and clients like Resty.
 
 ## Installation
 
@@ -23,170 +25,145 @@ go get github.com/your-username/smartlog
 
 ## Configuration
 
-The logger is configured via a `smartlog.Config` struct, which can be easily populated from a YAML, JSON, or TOML file using a library like [Viper](https://github.com/spf13/viper).
+`smartlog` is configured via a single YAML file (e.g., `config.yml`), loaded with [Viper](https://github.com/spf13/viper). This approach keeps your logging setup clean and easy to manage.
 
-An example `config.yml` is provided in the `examples/` directory:
-
+**Example `config.yml`:**
 ```yaml
 service_name: "example-service"
 env: "development"
 redact_keys: ["password", "Authorization", "token"]
+skip_paths: ["/health", "/metrics"]
 
 log:
   filename: "app.log"
   max_size: 10
   max_backups: 3
-  max_age: 1
+  max_age: 7
   compression: "gzip"
   rotation_interval: 24 # in hours
+  level: "debug"        # "debug", "info", "warn", "error"
+
+gorm:
+  level: "info"                 # "silent", "error", "warn", "info"
+  log_query_result: true        # Log data returned from queries
+  log_result_max_bytes: 1024    # Truncate large results
 ```
 
 ### Configuration Details
-
 - `service_name`: The name of your service (e.g., "user-service").
 - `env`: The environment (e.g., "production", "development").
-- `redact_keys`: A list of keys that should be censored in the logs.
-- `skip_paths`: A list of URL paths to exclude from logging (e.g., `["/health", "/metrics"]`).
+- `redact_keys`: A list of keys to be censored in logs.
+- `skip_paths`: A list of URL paths to exclude from logging.
 - `log`:
-  - `filename`: The path to the log file.
-  - `max_size`: The maximum size in megabytes of the log file before it gets rotated.
-  - `max_backups`: The maximum number of old log files to retain.
-  - `max_age`: The maximum number of days to retain old log files.
-  - `compression`: The compression type for rotated logs ("gzip" or "none").
-  - `rotation_interval`: The rotation interval in hours (e.g., 24 for daily rotation).
-  - `level`: The log level for the file logger ("debug", "info", "warn", "error"). Defaults to "info".
+  - `filename`: The path for the log file.
+  - `max_size`, `max_backups`, `max_age`: Standard log rotation settings.
+  - `compression`: Compression for rotated logs ("gzip" or "none").
+  - `rotation_interval`: The rotation interval in hours (e.g., 24 for daily).
+  - `level`: Log level for the file logger. Defaults to "info".
 - `gorm`:
-  - `level`: The log level for GORM's logger ("silent", "error", "warn", "info"). Defaults to "info".
-  - `log_query_result`: Set to `true` to log the data returned from queries. Defaults to `false`.
-  - `log_result_max_bytes`: The maximum number of bytes to log for a query result. Defaults to `0` (no limit).
+  - `level`: Log level for GORM's logger. Defaults to "info".
+  - `log_query_result`: Set to `true` to log data returned from queries. Defaults to `false`.
+  - `log_result_max_bytes`: Max bytes for a logged query result.
 
 ## Usage
 
 ### 1. Initializing the Logger
-
-First, create a logger instance using your configuration. It's recommended to do this once when your application starts.
-
-```go
-import "smartlog"
-
-// ... create your config `cfg`
-logger := smartlog.NewLogger(cfg)
-defer logger.Sync() // Flushes the buffer, important before application exit.
-```
-
-### 2. Server Logging Middleware
-
-To log all incoming requests to your server, wrap your main router or handler with the `ServerLogging` middleware.
+Load your configuration and create a logger instance once when your application starts.
 
 ```go
 import (
-    "net/http"
+    "log"
     "smartlog"
+    "github.com/spf13/viper"
 )
 
-// Your main handler or router
-myRouter := http.NewServeMux()
-myRouter.HandleFunc("/", myHandler)
+// Load config from file
+viper.SetConfigName("config")
+viper.SetConfigType("yml")
+viper.AddConfigPath(".")
+if err := viper.ReadInConfig(); err != nil {
+    log.Fatalf("Error reading config file: %s", err)
+}
 
-// Wrap the router with the logging middleware
-loggedRouter := smartlog.ServerLogging(logger, cfg.RedactKeys)(myRouter)
+var cfg smartlog.Config
+if err := viper.Unmarshal(&cfg); err != nil {
+    log.Fatalf("Unable to decode into struct: %v", err)
+}
 
-// Start the server
+// Create logger
+logger := smartlog.NewLogger(&cfg)
+defer logger.Sync() // Flushes the buffer
+```
+
+### 2. Server Logging Middleware
+Wrap your main router or handler with the `ServerLogging` middleware.
+
+```go
+// myRouter can be any http.Handler (e.g., http.NewServeMux, Gin, Chi)
+loggedRouter := smartlog.ServerLogging(logger, &cfg)(myRouter)
 http.ListenAndServe(":8080", loggedRouter)
 ```
 
 ### 3. Client Logging Middleware
+Create an `http.Client` and set its `Transport` to the `NewClientLogger`.
 
-To log all outgoing requests from your `http.Client` (e.g., when calling other APIs), create a new client and set its `Transport` to the `NewClientLogger`.
+```go
+client := &http.Client{
+    Transport: smartlog.NewClientLogger(http.DefaultTransport, logger, &cfg),
+}
+
+// All requests made with this client will now be logged
+// and will carry the log_id from the incoming request's context.
+req, _ := http.NewRequestWithContext(ctx, "GET", "https://api.example.com/data", nil)
+resp, err := client.Do(req)
+```
+
+### 4. GORM Integration
+Inject `smartlog` into GORM to automatically log SQL queries.
 
 ```go
 import (
-    "net/http"
-    "smartlog"
+    "gorm.io/driver/sqlite"
+    "gorm.io/gorm"
 )
 
-// Create an http.Client with the logging RoundTripper
-client := &http.Client{
-    Transport: smartlog.NewClientLogger(http.DefaultTransport, logger, cfg.RedactKeys),
-}
+// Create the GORM logger
+gormLogger := smartlog.NewGormLogger(logger, cfg.Gorm)
 
-// Now, all requests made with this client will be logged.
-// The `X-Request-ID` will be automatically passed from the incoming request's context.
-req, _ := http.NewRequestWithContext(ctx, "GET", "https://api.example.com/data", nil)
-resp, err := client.Do(req)
+// Initialize GORM
+db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
+    Logger: gormLogger,
+})
 
-```
-
-## Running the Example
-
-An end-to-end example is available in the `examples/` directory. You can run it to see the logger in action:
-
-```bash
-cd examples
-go mod init example
-go mod tidy
-go run main.go
-```
-*Note: `go mod` commands are needed because `examples/main.go` is outside the root `smartlog` module.*
-
-Then, send a test request from another terminal:
-```bash
-curl -X POST -H "Authorization: Bearer secret-token" -d '{"username":"jules", "password":"123"}' http://localhost:8080/users
-```
-
-Check the console output and the generated `app.log` file to see the structured logs for the server request, the client request to the mock service, and the final server response. You will see that the `log_id` is consistent across all related log entries.
-
-## Integration Examples
-
-The `examples/` directory also contains examples for integrating `smartlog` with popular libraries.
-
-### Resty Client
-
-To run the Resty example:
-```bash
-cd examples/resty
-go run main.go
-```
-
-### Gin Server
-
-To run the Gin server example:
-```bash
-cd examples/gin
-go run main.go
-```
-
-### Echo Server
-
-To run the Echo server example:
-```bash
-cd examples/echo
-go run main.go
-```
-
-### GORM Integration
-
-To run the GORM integration example:
-```bash
-cd examples/gorm
-go run main.go
-```
-This example demonstrates how to inject the `smartlog` logger into GORM to automatically log SQL queries in the same structured JSON format, including the `log_id` from the request context.
-
-To log the results of queries, you must also register the included GORM plugin:
-```go
+// To log query results, register the plugin
 resultLoggerPlugin := smartlog.NewGormResultLogPlugin(logger, cfg.Gorm)
 if err := db.Use(resultLoggerPlugin); err != nil {
-    log.Fatalf("Failed to register GORM result logger plugin: %v", err)
+    log.Fatalf("Failed to register GORM plugin: %v", err)
 }
+
+// Now, GORM operations will be logged automatically
+// db.WithContext(ctx).First(&user, 1)
 ```
 
-### End-to-End Example
+## Running the Examples
 
-The `examples/end-to-end` directory contains a complete example that demonstrates the full power of `smartlog`. It shows how a single `log_id` can be used to trace a request from the moment it hits the server, through a database query with GORM, to an outgoing client call to a downstream service.
+The `examples/` directory contains several runnable examples.
 
-To run the end-to-end example:
+### End-to-End Example (Recommended)
+This is the best place to start. It demonstrates the full power of `smartlog`, showing how a single `log_id` traces a request from the server, through a GORM query, to a downstream client call.
+
 ```bash
 cd examples/end-to-end
 go run main.go
 ```
+Then, from another terminal, send a request:
+```bash
+curl -X POST http://localhost:8085/users
+```
+Check `e2e_app.log` and filter by a `log_id` to see the complete trace.
+
+### Other Integration Examples
+- **Resty Client:** `cd examples/resty && go run main.go`
+- **Gin Server:** `cd examples/gin && go run main.go`
+- **Echo Server:** `cd examples/echo && go run main.go`
+- **GORM (standalone):** `cd examples/gorm && go run main.go`
