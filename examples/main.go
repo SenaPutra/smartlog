@@ -9,20 +9,27 @@ import (
 	"smartlog"
 	"time"
 
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
 func main() {
-	// --- 1. Configuration ---
-	cfg := &smartlog.Config{
-		ServiceName: "user-service",
-		Env:         "development",
-		LogPath:     "app.log", // Log file will be created in the current directory
-		RedactKeys:  []string{"password", "Authorization", "token"},
+	// --- 1. Load Configuration ---
+	viper.SetConfigName("config")
+	viper.SetConfigType("yml")
+	viper.AddConfigPath(".") // Look for config in the current directory
+
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatalf("Error reading config file: %s", err)
+	}
+
+	var cfg smartlog.Config
+	if err := viper.Unmarshal(&cfg); err != nil {
+		log.Fatalf("Unable to decode into struct: %v", err)
 	}
 
 	// --- 2. Logger Initialization ---
-	logger := smartlog.NewLogger(cfg)
+	logger := smartlog.NewLogger(&cfg)
 	defer logger.Sync() // Flushes buffer, important for ensuring logs are written
 
 	// --- 3. Mock External Service (Downstream) ---
@@ -45,7 +52,7 @@ func main() {
 
 	// --- 4. HTTP Client with Logging Middleware ---
 	client := &http.Client{
-		Transport: smartlog.NewClientLogger(http.DefaultTransport, logger, cfg.RedactKeys),
+		Transport: smartlog.NewClientLogger(http.DefaultTransport, logger, &cfg),
 		Timeout:   5 * time.Second,
 	}
 
@@ -82,7 +89,7 @@ func main() {
 
 	// --- 6. HTTP Server with Logging Middleware ---
 	// Wrap the main handler with the server logging middleware.
-	loggedRouter := smartlog.ServerLogging(logger, cfg.RedactKeys)(mainHandler)
+	loggedRouter := smartlog.ServerLogging(logger, &cfg)(mainHandler)
 
 	fmt.Println("Starting server on :8080")
 	fmt.Println("Try sending a request, e.g.:")

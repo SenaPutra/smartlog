@@ -4,9 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -25,10 +29,12 @@ func TestServerLoggingMiddleware(t *testing.T) {
 	})
 
 	// Keys to be redacted in this test
-	redactKeys := []string{"secret", "Authorization"}
+	cfg := &Config{
+		RedactKeys: []string{"secret", "Authorization"},
+	}
 
 	// Create the middleware
-	middleware := ServerLogging(logger, redactKeys)
+	middleware := ServerLogging(logger, cfg)
 	wrappedHandler := middleware(testHandler)
 
 	// Create a test request
@@ -101,4 +107,89 @@ func TestServerLoggingMiddleware(t *testing.T) {
 	if dataField["secret"] != redactionPlaceholder {
 		t.Errorf("response body was not redacted correctly, got: %s", dataField["secret"])
 	}
+}
+
+func TestServerLogging_FileCreationAndContent(t *testing.T) {
+	// 1. Setup a temporary directory for the log file
+	tempDir := t.TempDir()
+	logPath := filepath.Join(tempDir, "test.log")
+
+	// 2. Configure and create a logger that writes to the temp file
+	cfg := &Config{
+		ServiceName: "test-service",
+		Env:         "test",
+		Log: TimberjackConfig{
+			Filename: logPath,
+		},
+		RedactKeys: []string{"password"},
+	}
+	logger := NewLogger(cfg)
+	defer logger.Sync()
+
+	// 3. Setup the test handler and middleware
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+	middleware := ServerLogging(logger, cfg)
+	wrappedHandler := middleware(testHandler)
+
+	// 4. Send a request to trigger the logger
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	rr := httptest.NewRecorder()
+	wrappedHandler.ServeHTTP(rr, req)
+
+	// 5. Verify the log file was created
+	_, err := os.Stat(logPath)
+	require.NoError(t, err, "Log file should be created")
+
+	// 6. Read the content of the log file
+	logContent, err := os.ReadFile(logPath)
+	require.NoError(t, err, "Should be able to read the log file")
+
+	// 7. Verify the log content
+	logString := string(logContent)
+	assert.Contains(t, logString, `"message":"Request received"`, "Log should contain the request received message")
+	assert.Contains(t, logString, `"message":"Response sent"`, "Log should contain the response sent message")
+	assert.Contains(t, logString, `"service":"test-service"`, "Log should contain the service name")
+	assert.Contains(t, logString, `"path":"/health"`, "Log should contain the request path")
+}
+
+func TestServerLogging_SkipPath(t *testing.T) {
+	// Setup a mock logger to capture logs
+	core, recorded := observer.New(zapcore.InfoLevel)
+	logger := zap.New(core)
+
+	// Configure to skip the /health path
+	cfg := &Config{
+		SkipPaths: []string{"/health"},
+	}
+
+	// A simple handler
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Create the middleware
+	middleware := ServerLogging(logger, cfg)
+	wrappedHandler := middleware(testHandler)
+
+	// Create a test request to the skipped path
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	rr := httptest.NewRecorder()
+	wrappedHandler.ServeHTTP(rr, req)
+
+	// Assertions for the response
+	assert.Equal(t, http.StatusOK, rr.Code, "Handler should be called even if logging is skipped")
+
+	// Assert that no logs were recorded
+	assert.Equal(t, 0, recorded.Len(), "Should not record any logs for a skipped path")
+
+	// Create another request to a non-skipped path
+	req = httptest.NewRequest(http.MethodGet, "/api/data", nil)
+	rr = httptest.NewRecorder()
+	wrappedHandler.ServeHTTP(rr, req)
+
+	// Assert that logs were recorded for the non-skipped path
+	assert.Equal(t, 2, recorded.Len(), "Should record logs for a non-skipped path")
 }

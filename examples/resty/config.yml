@@ -1,0 +1,11 @@
+service_name: "resty-client-example"
+env: "development"
+redact_keys: ["Authorization", "token"]
+
+log:
+  filename: "resty_app.log"
+  max_size: 10
+  max_backups: 3
+  max_age: 1
+  compression: "gzip"
+  rotation_interval: 24 # in hours

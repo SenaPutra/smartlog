@@ -23,21 +23,42 @@ go get github.com/your-username/smartlog
 
 ## Configuration
 
-The logger is configured via a `smartlog.Config` struct. This can be populated from a config file (e.g., YAML, JSON) using a library like [Viper](https://github.com/spf13/viper).
+The logger is configured via a `smartlog.Config` struct, which can be easily populated from a YAML, JSON, or TOML file using a library like [Viper](https://github.com/spf13/viper).
 
-```go
-cfg := &smartlog.Config{
-    ServiceName: "user-service",
-    Env:         "production",
-    LogPath:     "/var/log/user-service.log",
-    RedactKeys:  []string{"password", "Authorization", "token", "api_key"},
-}
+An example `config.yml` is provided in the `examples/` directory:
+
+```yaml
+service_name: "example-service"
+env: "development"
+redact_keys: ["password", "Authorization", "token"]
+
+log:
+  filename: "app.log"
+  max_size: 10
+  max_backups: 3
+  max_age: 1
+  compression: "gzip"
+  rotation_interval: 24 # in hours
 ```
 
-- `ServiceName`: The name of your service (e.g., "user-service").
-- `Env`: The environment (e.g., "production", "development").
-- `LogPath`: The file path where logs will be written.
-- `RedactKeys`: A slice of strings containing keys that should be censored in the logs. The redaction is case-insensitive.
+### Configuration Details
+
+- `service_name`: The name of your service (e.g., "user-service").
+- `env`: The environment (e.g., "production", "development").
+- `redact_keys`: A list of keys that should be censored in the logs.
+- `skip_paths`: A list of URL paths to exclude from logging (e.g., `["/health", "/metrics"]`).
+- `log`:
+  - `filename`: The path to the log file.
+  - `max_size`: The maximum size in megabytes of the log file before it gets rotated.
+  - `max_backups`: The maximum number of old log files to retain.
+  - `max_age`: The maximum number of days to retain old log files.
+  - `compression`: The compression type for rotated logs ("gzip" or "none").
+  - `rotation_interval`: The rotation interval in hours (e.g., 24 for daily rotation).
+  - `level`: The log level for the file logger ("debug", "info", "warn", "error"). Defaults to "info".
+- `gorm`:
+  - `level`: The log level for GORM's logger ("silent", "error", "warn", "info"). Defaults to "info".
+  - `log_query_result`: Set to `true` to log the data returned from queries. Defaults to `false`.
+  - `log_result_max_bytes`: The maximum number of bytes to log for a query result. Defaults to `0` (no limit).
 
 ## Usage
 
@@ -114,3 +135,58 @@ curl -X POST -H "Authorization: Bearer secret-token" -d '{"username":"jules", "p
 ```
 
 Check the console output and the generated `app.log` file to see the structured logs for the server request, the client request to the mock service, and the final server response. You will see that the `log_id` is consistent across all related log entries.
+
+## Integration Examples
+
+The `examples/` directory also contains examples for integrating `smartlog` with popular libraries.
+
+### Resty Client
+
+To run the Resty example:
+```bash
+cd examples/resty
+go run main.go
+```
+
+### Gin Server
+
+To run the Gin server example:
+```bash
+cd examples/gin
+go run main.go
+```
+
+### Echo Server
+
+To run the Echo server example:
+```bash
+cd examples/echo
+go run main.go
+```
+
+### GORM Integration
+
+To run the GORM integration example:
+```bash
+cd examples/gorm
+go run main.go
+```
+This example demonstrates how to inject the `smartlog` logger into GORM to automatically log SQL queries in the same structured JSON format, including the `log_id` from the request context.
+
+To log the results of queries, you must also register the included GORM plugin:
+```go
+resultLoggerPlugin := smartlog.NewGormResultLogPlugin(logger, cfg.Gorm)
+if err := db.Use(resultLoggerPlugin); err != nil {
+    log.Fatalf("Failed to register GORM result logger plugin: %v", err)
+}
+```
+
+### End-to-End Example
+
+The `examples/end-to-end` directory contains a complete example that demonstrates the full power of `smartlog`. It shows how a single `log_id` can be used to trace a request from the moment it hits the server, through a database query with GORM, to an outgoing client call to a downstream service.
+
+To run the end-to-end example:
+```bash
+cd examples/end-to-end
+go run main.go
+```

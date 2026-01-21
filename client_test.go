@@ -26,7 +26,9 @@ func TestClientLoggingMiddleware(t *testing.T) {
 	logger := zap.New(core)
 
 	// Keys to be redacted in this test
-	redactKeys := []string{"Api-Key"}
+	cfg := &Config{
+		RedactKeys: []string{"Api-Key"},
+	}
 
 	// Mock the downstream server's response
 	mockTransport := &mockRoundTripper{
@@ -44,7 +46,7 @@ func TestClientLoggingMiddleware(t *testing.T) {
 
 	// Create the client with the logging middleware
 	client := &http.Client{
-		Transport: NewClientLogger(mockTransport, logger, redactKeys),
+		Transport: NewClientLogger(mockTransport, logger, cfg),
 	}
 
 	// Create a request with context containing the log ID
