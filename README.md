@@ -19,7 +19,7 @@ The main goal is to provide a "plug-and-play" solution for structured JSON loggi
 ## Installation
 
 ```bash
-go get github.com/your-username/smartlog
+go get github.com/SenaPutra/smartlog
 ```
 *(Note: Replace `your-username` with the actual path once it's published)*
 

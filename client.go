@@ -3,6 +3,7 @@ package smartlog
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/google/uuid"
 	"io"
 	"net/http"
 	"time"
@@ -35,6 +36,7 @@ func (lrt *loggingRoundTripper) RoundTrip(r *http.Request) (*http.Response, erro
 
 	ctxLogger := lrt.logger
 	if logID != "" {
+		logID = uuid.NewString()
 		r.Header.Set(HeaderLogID, logID)
 		ctxLogger = lrt.logger.With(zap.String("log_id", logID))
 	}
