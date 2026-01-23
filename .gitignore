@@ -1,0 +1,12 @@
+# Log files
+*.log
+
+# Compiled binaries
+/examples/echo/echo-example
+/examples/gin/gin-example
+/examples/resty/resty-example
+/examples/example
+/examples/examples
+/examples/gorm/gorm
+/examples/gorm/gorm-example
+/examples/end-to-end/end-to-end-example
